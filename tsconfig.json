@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2020",
+    "moduleResolution": "node",
+    "sourceMap": true,
+    "noImplicitAny": false,
+    "suppressImplicitAnyIndexErrors": false,
+    "declaration": false,
+    "watch": false,
+    "experimentalDecorators": true,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "node_modules",
+    "dist/src",
+    "npm",
+    "juicebox"
+  ],
+    "include": [
+        "src/**/*.ts",
+        "bin/**/*.ts",
+    ]
+}
+

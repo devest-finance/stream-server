@@ -1,0 +1,31 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Streamer</title>
+</head>
+<body>
+<audio id="audioPlayer" controls>
+    Your browser does not support the audio element.
+</audio>
+
+<script >
+    document.addEventListener('DOMContentLoaded', function() {
+        const audioPlayer = document.getElementById('audioPlayer');
+
+        // Set the source to the endpoint provided by your Express backend
+        audioPlayer.src = 'http://localhost:3000/stream';
+
+        // Example: play and pause events
+        audioPlayer.onplay = () => {
+            console.log('Audio started playing');
+        };
+
+        audioPlayer.onpause = () => {
+            console.log('Audio paused');
+        };
+
+        // You can add more event listeners as needed to handle seeking, volume control, etc.
+    });
+</script>
+</body>
+</html>
