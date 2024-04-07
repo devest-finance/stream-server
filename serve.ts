@@ -1,15 +1,18 @@
 import {Signature} from "./src/tools/Signature";
 import {AssetHelper} from "./src/web3/AssetHelper";
-import {Sunshine} from "sunshine-dao/lib/Sunshine";
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const admin = require('firebase-admin');
+import {Storage} from "./src/Storage";
+
+const storage = new Storage();
+Storage.connect();
 
 (async() => {
-    await Sunshine.connectURI("mongodb://localhost:27017/beatit", "");
-    console.log("Connected to database");
+
 })();
 
 const app = express();
@@ -38,6 +41,11 @@ app.get('/authorize', async (req, res) => {
     const asset = req.headers['asset'];
     const network = req.headers['network'];
 
+    try {
+        await Storage.updateMediaAccessCount(asset);
+        await Storage.updateWalletAccessCount2(address, asset);
+    }   catch (e) {}
+
     // check for headers
     if (!signature || !address || !asset)
         return res.status(403).send("Missing header parameters");
@@ -53,7 +61,7 @@ app.get('/authorize', async (req, res) => {
         return res.status(403).send("Insufficient balance");
 
     // issue signed cookie for access
-    let body = asset + ":" + (new Date()).getTime();
+    let body = asset + ":" + address + ":" + (new Date()).getTime();
     res.cookie('devest_stream', body, {
         signed: true,
         maxAge: 2 * 60 * 1000 // TTL of 24 hours, specified in milliseconds
@@ -68,15 +76,14 @@ app.get('/authorize', async (req, res) => {
  */
 app.get('/stream', async (req, res) => {
 
-
-
+    // verify access
     const asset = verifyCookie(req.signedCookies.devest_stream);
     if (!asset) {
         console.log("rejected");
         return res.status(403).send("Unauthorized");
     }
 
-    const audioPath = path.resolve(__dirname, './../media/' + asset);
+    const audioPath = path.resolve(__dirname, './media/' + asset);
     const stat = fs.statSync(audioPath);
     const fileSize = stat.size;
     const range = req.headers.range;
@@ -124,14 +131,14 @@ const checkBalance = async function(network, asset, address) {
     }
 }
 
-const verifyCookie = function(body) {
+const verifyCookie = function(body):any {
     // check for cookie
     if (!body)
         return false;
 
     // verify cookie
-    const [asset, timestamp] = body.split(':');
-    if (!asset || !timestamp)
+    const [asset, address, timestamp] = body.split(':');
+    if (!asset || !timestamp || !address)
         return false
 
     // check timestamp not older then 180 seconds

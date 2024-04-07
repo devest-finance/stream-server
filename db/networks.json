@@ -1,0 +1,11 @@
+[{
+  "id" : "0x1f5",
+  "name" : "Camino TestNet",
+  "nativeCurrency" : {
+    "name" : "Camino Test",
+    "symbol" : "CAM",
+    "decimals" : 18
+  },
+  "rpc" : "https://columbus.camino.network/ext/bc/C/rpc",
+  "testnet" : true
+}]

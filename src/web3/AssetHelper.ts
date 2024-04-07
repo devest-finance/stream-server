@@ -1,5 +1,5 @@
-import {Network} from "./Network";
 import Web3 from "web3";
+import {Storage} from "../Storage";
 
 export class AssetHelper {
 
@@ -16,7 +16,11 @@ export class AssetHelper {
     }
 
     protected async getWeb3(chainId: string): Promise<Web3> {
-        const network = await Network.findOne<Network>({ id: chainId }, { projection: { rpc: 1 } });
+        const networks = await Storage.getNetworks();
+        const network = networks.find(n => n.id === chainId);
+        if (!network)
+            throw new Error(`Network with id ${chainId} not found`);
+
         // @ts-ignore
         const provider = new Web3.providers.HttpProvider(network.rpc);
         return new Web3(provider);
