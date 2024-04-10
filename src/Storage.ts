@@ -39,8 +39,6 @@ export class Storage {
 
         // Add a new document with a generated ID
         const docRef = await logsCollectionRef.add(logData);
-
-        console.log(`New log added with ID: ${docRef.id}`);
     }
 
     public static async updateWalletAccessCount2(address, asset) {
@@ -58,7 +56,6 @@ export class Storage {
                 ["asset"]: asset,
                 ["views"]: 1
             });
-            console.log(`New document created with ID: ${newDocRef.id}`);
         } else {
             // If the document exists, increment the counter field.
             querySnapshot.forEach(doc => {
@@ -66,7 +63,6 @@ export class Storage {
                 docRef.set({
                     ["views"]: FieldValue.increment(1)
                 }, { merge: true });
-                console.log(`Counter incremented in document with ID: ${doc.id}`);
             });
         }
     }
@@ -82,7 +78,6 @@ export class Storage {
                 ["address"]: address,
                 ["views"]: 1
             });
-            console.log(`New document created with ID: ${newDocRef.id}`);
         } else {
             // If the document exists, increment the counter field.
             querySnapshot.forEach(doc => {
@@ -90,7 +85,6 @@ export class Storage {
                 docRef.set({
                     ["views"]: FieldValue.increment(1)
                 }, { merge: true });
-                console.log(`Counter incremented in document with ID: ${doc.id}`);
             });
         }
     }

@@ -86,11 +86,12 @@ app.get('/stream/:index?', async (req, res) => {
     }
 
     let audioPath = "";
-    if (req.params.index){
+    if (!req.params.index){
         audioPath = path.resolve(__dirname, './media/' + asset);
     } else {
         audioPath = path.resolve(__dirname, './media/' + asset + "_" + parseInt(req.params.index));
     }
+
     const stat = fs.statSync(audioPath);
     const fileSize = stat.size;
     const range = req.headers.range;
