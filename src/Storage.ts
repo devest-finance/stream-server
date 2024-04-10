@@ -16,6 +16,7 @@ export class Storage {
         const {Firestore} = require('@google-cloud/firestore');
         Storage.firestore = new Firestore({
             projectId: 'juice-streaming',
+            keyFilename: './firebase.json'
         });
         return true;
     }
