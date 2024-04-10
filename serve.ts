@@ -64,7 +64,9 @@ app.get('/authorize', async (req, res) => {
     let body = asset + ":" + address + ":" + (new Date()).getTime();
     res.cookie('devest_stream', body, {
         signed: true,
-        maxAge: 2 * 60 * 1000 // TTL of 24 hours, specified in milliseconds
+        maxAge: 3 * 60 * 1000, // TTL of 24 hours, specified in milliseconds,
+        sameSite: 'None', // Set SameSite attribute to None
+        secure: true // Ensure the cookie is sent over HTTPS
     });
     res.send('Signed cookie set');
 });
@@ -74,7 +76,7 @@ app.get('/authorize', async (req, res) => {
  * Additionally it will count towards the songs total stream count in 24h => save to db
  * cookie: with signature
  */
-app.get('/stream', async (req, res) => {
+app.get('/stream/:index?', async (req, res) => {
 
     // verify access
     const asset = verifyCookie(req.signedCookies.devest_stream);
@@ -83,7 +85,12 @@ app.get('/stream', async (req, res) => {
         return res.status(403).send("Unauthorized");
     }
 
-    const audioPath = path.resolve(__dirname, './media/' + asset);
+    let audioPath = "";
+    if (req.params.index){
+        audioPath = path.resolve(__dirname, './media/' + asset);
+    } else {
+        audioPath = path.resolve(__dirname, './media/' + asset + "_" + parseInt(req.params.index));
+    }
     const stat = fs.statSync(audioPath);
     const fileSize = stat.size;
     const range = req.headers.range;
