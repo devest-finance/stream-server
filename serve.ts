@@ -7,13 +7,8 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const admin = require('firebase-admin');
 import {Storage} from "./src/Storage";
-
-const storage = new Storage();
+const multer = require('multer');
 Storage.connect();
-
-(async() => {
-
-})();
 
 const app = express();
 const port = 4000;
@@ -21,7 +16,7 @@ const port = 4000;
 const MAX_CHUNK_SIZE = 1024 * 1024 * 5; // 5MB, adjust this to your needs
 
 const corsOptions = {
-    origin: ['http://localhost:8300', "https://devest.finance"], // Specify the origin you're allowing requests from
+    origin: ['https://nft.clubmixed.com/','http://localhost:5173','http://localhost:8300', "https://devest.finance"], // Specify the origin you're allowing requests from
     credentials: true, // Crucial for cookies, authorization headers with HTTPS
 };
 
@@ -70,6 +65,56 @@ app.get('/authorize', async (req, res) => {
     });
     res.send('Signed cookie set');
 });
+
+
+
+// Authorization Middleware
+function checkAuth(req, res, next) {
+    const signature = req.headers['signature'];
+    const address = req.headers['address'];
+
+    // check for headers
+    if (!signature)
+        return res.status(401).send("Missing header parameters");
+
+    // check signature
+    const signer = new Signature();
+    if (!signer.verify(signature, address))
+        return res.status(401).send("Authorization failed");
+
+    next();
+}
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, './media/')
+    },
+    filename: async function (req, file, cb) {
+        //cb(null, file.originalname)
+        const asset = req.headers['asset'];
+        const index = req.params.index;
+
+        try {
+            // Construct the final filename
+            const filename = `${asset}_${index}`;
+
+            cb(null, filename);
+        } catch (err) {
+            cb(err); // Handle errors
+        }
+    }
+});
+
+const upload = multer({ storage: storage });
+/**
+ * Accept files to upload
+ */
+app.post("/upload/:index", checkAuth, upload.single('file'), async (req, res) => {
+    return res.status(200).send({
+        message: "File uploaded successfully"
+    })
+});
+
 
 /**
  * On stream request i need the users signature to verify that they are allowed to stream the content

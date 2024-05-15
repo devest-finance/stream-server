@@ -8,4 +8,14 @@
   },
   "rpc" : "https://columbus.camino.network/ext/bc/C/rpc",
   "testnet" : true
+}, {
+  "id" : "0x13882",
+  "name" : "Polygon Test",
+  "nativeCurrency" : {
+    "name" : "MATIC @ Polygon Mainnet",
+    "symbol" : "MATIC",
+    "decimals" : 18
+  },
+  "rpc": "https://rpc-amoy.polygon.technology",
+  "testnet" : true
 }]
