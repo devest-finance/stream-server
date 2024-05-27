@@ -3,12 +3,16 @@ import Web3 from "web3";
 export class Signature {
 
     verify(signature: string, address: string){
-        const message = this.createMessage(address);
+        try {
+            const message = this.createMessage(address);
 
-        const web3 = new Web3();
-        const signingAddress = web3.eth.accounts.recover(message, signature);
+            const web3 = new Web3();
+            const signingAddress = web3.eth.accounts.recover(message, signature);
 
-        return address.toLowerCase() == signingAddress.toLowerCase();
+            return address.toLowerCase() == signingAddress.toLowerCase();
+        } catch (exception){
+            return false;
+        }
     }
 
     sign(){}
