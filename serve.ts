@@ -7,6 +7,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const admin = require('firebase-admin');
 import {Storage} from "./src/Storage";
+import {file} from "googleapis/build/src/apis/file";
 const multer = require('multer');
 Storage.connect();
 
@@ -171,6 +172,38 @@ app.get('/stream/:index?', async (req, res) => {
         res.writeHead(200, head);
         fs.createReadStream(audioPath).pipe(res);
     }
+});
+
+app.get('/download/:index?', checkAuth, async (req, res) => {
+    const asset = req.headers['asset'];
+    const index = req.params.index;
+    const filename = `${asset}_${index}`;
+    // verify access
+    const cookie = verifyCookie(req.signedCookies.devest_stream);
+    if (!cookie) {
+        console.log("rejected");
+        return res.status(403).send("Unauthorized");
+    }
+
+    let filePath = "";
+    if (!req.params.index){
+        filePath = path.resolve(__dirname, './media/' + asset);
+    } else {
+        filePath = path.resolve(__dirname, './media/' + asset + "_" + parseInt(req.params.index));
+    }
+
+    // Verify the file exists
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).send("File not found");
+    }
+
+    // Send the file as a download
+    res.download(filePath, filename, (err) => {
+        if (err) {
+            console.error("Error downloading file:", err);
+            res.status(500).send("Error downloading file");
+        }
+    });
 });
 
 const checkBalance = async function(network, asset, address) {
