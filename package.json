@@ -13,6 +13,7 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "ffmpeg": "^0.0.4",
     "firebase-admin": "^12.0.0",
     "googleapis": "^134.0.0",
     "ipfs-core": "^0.18.1",

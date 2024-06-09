@@ -7,7 +7,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const admin = require('firebase-admin');
 import {Storage} from "./src/Storage";
-import {file} from "googleapis/build/src/apis/file";
+const ffmpeg = require('fluent-ffmpeg');
 const multer = require('multer');
 Storage.connect();
 
@@ -51,10 +51,12 @@ app.get('/authorize', async (req, res) => {
     if (!signer.verify(signature, address))
         return res.status(403).send("Authorization failed");
 
-    // check balance
-    const balance = await checkBalance(network, asset, address);
-    if (balance <= 0)
-        return res.status(403).send("Insufficient balance");
+    //  check balance
+    if (asset != "0x56F46Ae0B3f8Aba3C4cf5f7924C482719314384F"){
+        const balance = await checkBalance(network, asset, address);
+        if (balance <= 0)
+            return res.status(403).send("Insufficient balance");
+    }
 
     // issue signed cookie for access
     let body = asset + ":" + address + ":" + (new Date()).getTime();
@@ -116,6 +118,29 @@ app.post("/upload/:index", checkAuth, upload.single('file'), async (req, res) =>
     })
 });
 
+// Middleware to convert .wav to .mp3
+async function convertWavToMp3(asset, index) {
+    try {
+        const wavPath = path.resolve(__dirname, './media/', `${asset}_${index}`);
+        const mp3Path = path.resolve(__dirname, './media/', `${asset}_${index}.mp3`);
+
+        if (!fs.existsSync(mp3Path)) {
+            console.log(`Converting ${wavPath} to ${mp3Path}`);
+            await new Promise((resolve, reject) => {
+                ffmpeg(wavPath)
+                    .toFormat('mp3')
+                    .on('end', resolve)
+                    .on('error', reject)
+                    .save(mp3Path);
+            });
+        }
+
+        return true;
+    } catch (error) {
+        console.error(error);
+        return false;
+    }
+}
 
 /**
  * On stream request i need the users signature to verify that they are allowed to stream the content
@@ -123,59 +148,62 @@ app.post("/upload/:index", checkAuth, upload.single('file'), async (req, res) =>
  * cookie: with signature
  */
 app.get('/stream/:index?', async (req, res) => {
+    try {
+        // Verify access
+        const asset = verifyCookie(req.signedCookies.devest_stream);
+        if (!asset) {
+            console.log("rejected");
+            return res.status(403).send("Unauthorized");
+        }
 
-    // verify access
-    const asset = verifyCookie(req.signedCookies.devest_stream);
-    if (!asset) {
-        console.log("rejected");
-        return res.status(403).send("Unauthorized");
-    }
+        let audioPath = req.params.index
+            ? path.resolve(__dirname, './media/', `${asset}_${parseInt(req.params.index)}`)
+            : path.resolve(__dirname, './media/', asset);
 
-    let audioPath = "";
-    if (!req.params.index){
-        audioPath = path.resolve(__dirname, './media/' + asset);
-    } else {
-        audioPath = path.resolve(__dirname, './media/' + asset + "_" + parseInt(req.params.index));
-    }
+        // check if mp3 is available
 
-    const stat = fs.statSync(audioPath);
-    const fileSize = stat.size;
-    const range = req.headers.range;
+        const stat = await fs.promises.stat(audioPath);
+        const fileSize = stat.size;
+        const range = req.headers.range;
 
-    if (range) {
-        const parts = range.replace(/bytes=/, "").split("-");
-        const start = parseInt(parts[0], 10);
-        let end = parts[1]
-            ? parseInt(parts[1], 10)
-            : fileSize-1;
+        if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            let end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
 
-        // Adjust the end for the maximum chunk size
-        end = Math.min(start + MAX_CHUNK_SIZE - 1, end, fileSize - 1);
+            // Adjust the end for the maximum chunk size
+            end = Math.min(start + MAX_CHUNK_SIZE - 1, end, fileSize - 1);
 
-        const chunksize = (end-start)+1;
-        console.log("# streaming request : " + chunksize + " bytes");
-        const file = fs.createReadStream(audioPath, {start, end});
-        const head = {
-            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-            'Accept-Ranges': 'bytes',
-            'Content-Length': chunksize,
-            'Content-Type': 'audio/mp3',
-        };
+            const chunksize = (end - start) + 1;
+            console.log(`# streaming request : ${chunksize} bytes`);
+            const file = fs.createReadStream(audioPath, { start, end });
+            const head = {
+                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunksize,
+                'Content-Type': 'audio/mp3',
+            };
 
-        res.writeHead(206, head);
-        file.pipe(res);
-    } else {
-        const head = {
-            'Content-Length': fileSize,
-            'Content-Type': 'audio/mp3',
-        };
-        res.writeHead(200, head);
-        fs.createReadStream(audioPath).pipe(res);
+            res.writeHead(206, head);
+            file.pipe(res);
+        } else {
+            const head = {
+                'Content-Length': fileSize,
+                'Content-Type': 'audio/mp3',
+            };
+            res.writeHead(200, head);
+            fs.createReadStream(audioPath).pipe(res);
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("Internal Server Error");
     }
 });
 
 app.get('/download/:index?', checkAuth, async (req, res) => {
     const asset = req.headers['asset'];
+    const network = req.headers['network'];
+    const  address = req.headers['address'];
     const index = req.params.index;
     const filename = `${asset}_${index}`;
     // verify access
@@ -184,6 +212,11 @@ app.get('/download/:index?', checkAuth, async (req, res) => {
         console.log("rejected");
         return res.status(403).send("Unauthorized");
     }
+
+    // check balance
+    const balance = await checkBalance(network, asset, address);
+    if (balance <= 0)
+        return res.status(403).send("Insufficient balance");
 
     let filePath = "";
     if (!req.params.index){
