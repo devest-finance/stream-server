@@ -17,7 +17,7 @@ const port = 4000;
 const MAX_CHUNK_SIZE = 1024 * 1024 * 5; // 5MB, adjust this to your needs
 
 const corsOptions = {
-    origin: ['https://nft.clubmixed.com/','http://localhost:5173','http://localhost:8300', "https://devest.finance"], // Specify the origin you're allowing requests from
+    origin: ['https://nft.clubmixed.com','http://localhost:5173','http://localhost:8300', "https://devest.finance"], // Specify the origin you're allowing requests from
     credentials: true, // Crucial for cookies, authorization headers with HTTPS
 };
 
@@ -25,11 +25,14 @@ app.use(cors(corsOptions));
 // Use cookie-parser middleware with a secret for signing cookies
 app.use(cookieParser('your secret here'));
 
-app.get("/", (req, res) => {
-    res.sendFile(path.resolve(__dirname, './../views/index.html'));
-});
+app.use('/', express.static(path.join(__dirname, 'public')));
 
-app.get('/authorize', async (req, res) => {
+/*
+app.get("/", (req, res) => {
+    res.sendFile(path.resolve(__dirname, './../public/index.html'));
+});*/
+
+app.get('/authorize/:time', async (req, res) => {
 
     // fetch headers for authorization
     const signature = req.headers['signature'];
@@ -150,15 +153,15 @@ async function convertWavToMp3(asset, index) {
 app.get('/stream/:index?', async (req, res) => {
     try {
         // Verify access
-        const asset = verifyCookie(req.signedCookies.devest_stream);
-        if (!asset) {
+        const verified = verifyCookie(req.signedCookies.devest_stream);
+        if (!verified.asset) {
             console.log("rejected");
             return res.status(403).send("Unauthorized");
         }
 
         let audioPath = req.params.index
-            ? path.resolve(__dirname, './media/', `${asset}_${parseInt(req.params.index)}`)
-            : path.resolve(__dirname, './media/', asset);
+            ? path.resolve(__dirname, './media/', `${verified.asset}_${parseInt(req.params.index)}`)
+            : path.resolve(__dirname, './media/', verified.asset);
 
         // check if mp3 is available
 
@@ -200,29 +203,27 @@ app.get('/stream/:index?', async (req, res) => {
     }
 });
 
-app.get('/download/:index?', checkAuth, async (req, res) => {
-    const asset = req.headers['asset'];
-    const network = req.headers['network'];
-    const  address = req.headers['address'];
-    const index = req.params.index;
-    const filename = `${asset}_${index}`;
+app.get('/download/:index?', async (req, res) => {
     // verify access
-    const cookie = verifyCookie(req.signedCookies.devest_stream);
-    if (!cookie) {
+    const verified = verifyCookie(req.signedCookies.devest_stream);
+    if (!verified.cookie) {
         console.log("rejected");
         return res.status(403).send("Unauthorized");
     }
 
+    const index = req.params.index;
+    const filename = `${verified.asset}_${index}`;
+
     // check balance
-    const balance = await checkBalance(network, asset, address);
+    const balance = await checkBalance("0x89", verified.asset, verified.address);
     if (balance <= 0)
         return res.status(403).send("Insufficient balance");
 
     let filePath = "";
     if (!req.params.index){
-        filePath = path.resolve(__dirname, './media/' + asset);
+        filePath = path.resolve(__dirname, './media/' + verified.asset);
     } else {
-        filePath = path.resolve(__dirname, './media/' + asset + "_" + parseInt(req.params.index));
+        filePath = path.resolve(__dirname, './media/' + verified.asset + "_" + parseInt(req.params.index));
     }
 
     // Verify the file exists
@@ -264,7 +265,10 @@ const verifyCookie = function(body):any {
     if ((new Date()).getTime() - parseInt(timestamp) > 180000)
         return false;
 
-    return asset;
+    return {
+        asset: asset,
+        address: address,
+    };
 }
 
 
