@@ -27,11 +27,6 @@ app.use(cookieParser('your secret here'));
 
 app.use('/', express.static(path.join(__dirname, 'public')));
 
-/*
-app.get("/", (req, res) => {
-    res.sendFile(path.resolve(__dirname, './../public/index.html'));
-});*/
-
 app.get('/authorize/:time', async (req, res) => {
 
     // fetch headers for authorization
@@ -122,10 +117,10 @@ app.post("/upload/:index", checkAuth, upload.single('file'), async (req, res) =>
 });
 
 // Middleware to convert .wav to .mp3
-async function convertWavToMp3(asset, index) {
+ const convertWavToMp3 = async(basepath) => {
     try {
-        const wavPath = path.resolve(__dirname, './media/', `${asset}_${index}`);
-        const mp3Path = path.resolve(__dirname, './media/', `${asset}_${index}.mp3`);
+        const wavPath = path.resolve(__dirname, './media/', `${basepath}`);
+        const mp3Path = path.resolve(__dirname, './media/', `${basepath}.mp3`);
 
         if (!fs.existsSync(mp3Path)) {
             console.log(`Converting ${wavPath} to ${mp3Path}`);
@@ -159,11 +154,24 @@ app.get('/stream/:index?', async (req, res) => {
             return res.status(403).send("Unauthorized");
         }
 
-        let audioPath = req.params.index
+        let audioBasePath = req.params.index
             ? path.resolve(__dirname, './media/', `${verified.asset}_${parseInt(req.params.index)}`)
             : path.resolve(__dirname, './media/', verified.asset);
 
-        // check if mp3 is available
+        let audioPath = `${audioBasePath}.mp3`;
+
+        try {
+            // Check if mp3 file exists
+            await fs.promises.stat(audioPath);
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                // File does not exist, call convertToMP3 function
+                await convertWavToMp3(audioBasePath);
+            } else {
+                // Some other error occurred
+                throw err;
+            }
+        }
 
         const stat = await fs.promises.stat(audioPath);
         const fileSize = stat.size;
@@ -190,12 +198,7 @@ app.get('/stream/:index?', async (req, res) => {
             res.writeHead(206, head);
             file.pipe(res);
         } else {
-            const head = {
-                'Content-Length': fileSize,
-                'Content-Type': 'audio/mp3',
-            };
-            res.writeHead(200, head);
-            fs.createReadStream(audioPath).pipe(res);
+            res.status(403).send("Unauthorized");
         }
     } catch (error) {
         console.error(error);
